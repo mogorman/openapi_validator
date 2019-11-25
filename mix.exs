@@ -4,7 +4,7 @@ defmodule OpenapiValidator.MixProject do
   def project do
     [
       app: :openapi_validator,
-      version: "0.0.2",
+      version: "0.0.3",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -38,7 +38,7 @@ defmodule OpenapiValidator.MixProject do
     [
       {:jason, "~> 1.1"},
       {:plug, ">= 1.6.0"},
-      {:ex_json_schema, "~> 0.6.1"},
+      {:ex_json_schema, "~> 0.7"},
       {:ex_spec, "~> 2.0.0", only: :test},
       {:freedom_formatter, "~> 1.1", only: [:dev, :test]},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
