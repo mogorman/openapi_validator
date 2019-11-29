@@ -413,6 +413,8 @@ defmodule OpenapiValidator.Plugs.Validate do
 
   defp convert_to_schema(path_info, path_params) do
     Enum.reduce(path_info, "", fn path, acc ->
+      path = URI.decode(path)
+
       fixed_path =
         path_params
         |> Enum.find({path, nil}, fn {_key, val} -> val == path end)
