@@ -1,4 +1,8 @@
 defmodule OpenapiValidator do
+  def find_schema({nil, nil}, _) do
+    %{}
+  end
+
   def find_schema({method, schema_url}, %{paths: paths, specs: specs}) do
     spec_name = Map.get(paths, {method, schema_url}, "")
     Map.get(specs, spec_name, %{})

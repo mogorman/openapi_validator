@@ -92,6 +92,7 @@ defmodule OpenapiValidator.Plugs.Validate do
        when schema == %{} do
     case Map.get(opts, :all_paths_required) do
       true ->
+        Logger.info("No spec found for #{method}:#{schema_url}")
         error_handler(conn, opts, :not_found, {method, schema_url, nil})
 
       false ->
@@ -405,28 +406,28 @@ defmodule OpenapiValidator.Plugs.Validate do
   end
 
   defp get_schema_url_from_request(conn) do
-    path_info = Map.get(conn, :path_info)
-    path_params = Map.get(conn, :path_params)
-    method = Map.get(conn, :method)
-    {method, convert_to_schema(path_info, path_params)}
-  end
+    router = (Map.get(conn, :private) || %{}) |> Map.get(:phoenix_router)
 
-  defp convert_to_schema(path_info, path_params) do
-    Enum.reduce(path_info, "", fn path, acc ->
-      path = URI.decode(path)
+    case router do
+      nil ->
+        {nil, nil}
 
-      fixed_path =
-        path_params
-        |> Enum.find({path, nil}, fn {_key, val} -> val == path end)
-        |> elem(0)
+      _ ->
+        route =
+          Phoenix.Router.route_info(
+            router,
+            conn.method,
+            conn.request_path,
+            conn.host
+          )
 
-      case fixed_path == path do
-        true ->
-          acc <> "/" <> fixed_path
+        schema_url =
+          Enum.reduce(route.path_params, route.route, fn {param, _value},
+                                                         path ->
+            String.replace(path, ":#{param}", "{#{param}}")
+          end)
 
-        false ->
-          acc <> "/" <> "{" <> fixed_path <> "}"
-      end
-    end)
+        {conn.method, schema_url}
+    end
   end
 end
