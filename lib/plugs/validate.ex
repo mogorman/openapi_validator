@@ -23,7 +23,8 @@ defmodule OpenapiValidator.Plugs.Validate do
 
   @impl Plug
   def init(%{specs: raw_specs} = opts) do
-    resolved_specs = OpenapiValidator.compile_specs(raw_specs)
+    resolved_specs =
+      OpenapiValidator.compile_specs(raw_specs)
 
     # set empty defaults for specs and paths just in case
     Map.merge(opts, %{
@@ -129,7 +130,7 @@ defmodule OpenapiValidator.Plugs.Validate do
   defp validated_body(conn, opts, {schema, _method, _schema_url} = open_api) do
     case Map.get(opts, :validate_params) do
       true ->
-        params_schema = get_params_fragments(open_api)
+        params_schema = get_params_fragments_or_object(open_api)
         conn = conn |> Plug.Conn.fetch_query_params()
 
         case attempt_validate_params(params_schema, schema, conn) do
@@ -256,8 +257,13 @@ defmodule OpenapiValidator.Plugs.Validate do
     results =
       Enum.map(
         fragments,
-        fn fragment_ref ->
-          fragment = ExJsonSchema.Schema.get_fragment!(schema, fragment_ref)
+        fn item ->
+          fragment =
+            case is_binary(item) do
+              true -> ExJsonSchema.Schema.get_fragment!(schema, item)
+              false -> item
+            end
+
           name = Map.get(fragment, "name")
           fragment_schema = Map.get(fragment, "schema")
           required = Map.get(fragment, "required", true)
@@ -304,7 +310,7 @@ defmodule OpenapiValidator.Plugs.Validate do
     end
   end
 
-  defp get_params_fragments({schema, method, schema_url}) do
+  defp get_params_fragments_or_object({schema, method, schema_url}) do
     method = String.downcase(method)
 
     case ExJsonSchema.Schema.get_fragment(schema, [
@@ -319,14 +325,18 @@ defmodule OpenapiValidator.Plugs.Validate do
 
       {:ok, result} ->
         Enum.map(result, fn elem ->
-          ref = Map.get(elem, "$ref")
+          case Map.get(elem, "$ref") do
+            nil ->
+              elem
 
-          Enum.reduce(ref, "", fn sub_elem, acc ->
-            case sub_elem do
-              :root -> "#"
-              _ -> acc <> "/" <> sub_elem
-            end
-          end)
+            ref ->
+              Enum.reduce(ref, "", fn sub_elem, acc ->
+                case sub_elem do
+                  :root -> "#"
+                  _ -> acc <> "/" <> sub_elem
+                end
+              end)
+          end
         end)
     end
   end
@@ -362,18 +372,23 @@ defmodule OpenapiValidator.Plugs.Validate do
            "content",
            "application/json",
            "schema",
-           "$ref",
          ]) do
       {:error, _} ->
         false
 
       {:ok, result} ->
-        Enum.reduce(result, "", fn elem, acc ->
-          case elem do
-            :root -> "#"
-            _ -> acc <> "/" <> elem
-          end
-        end)
+        case Map.get(result, "$ref") do
+          nil ->
+            result
+
+          ref ->
+            Enum.reduce(ref, "", fn sub_elem, acc ->
+              case sub_elem do
+                :root -> "#"
+                _ -> acc <> "/" <> sub_elem
+              end
+            end)
+        end
     end
   end
 
